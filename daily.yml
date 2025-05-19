@@ -1,0 +1,54 @@
+name: Random Fake Commit
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # Runs every day at 9 AM UTC
+  workflow_dispatch:
+
+jobs:
+  maybe_commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Decide whether to commit today
+        id: decide
+        run: |
+          echo "Random number between 1 and 5..."
+          RANDOM_DELAY=$((1 + RANDOM % 5))
+          echo "RANDOM_DELAY=$RANDOM_DELAY" >> $GITHUB_ENV
+
+          # Save the random delay in a file
+          echo "$RANDOM_DELAY" > .next_commit_in_days.txt
+
+          # Load last commit info
+          if [ -f .last_commit_day.txt ]; then
+            LAST_COMMIT=$(cat .last_commit_day.txt)
+          else
+            LAST_COMMIT=0
+          fi
+
+          # Update counter
+          NEW_COUNT=$((LAST_COMMIT + 1))
+          echo "$NEW_COUNT" > .last_commit_day.txt
+
+          # Only commit if the counter reaches RANDOM_DELAY
+          if [ "$NEW_COUNT" -ge "$RANDOM_DELAY" ]; then
+            echo "commit_today=true" >> $GITHUB_OUTPUT
+            echo "Resetting counter to 0"
+            echo "0" > .last_commit_day.txt
+          else
+            echo "commit_today=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fake commit if due
+        if: steps.decide.outputs.commit_today == 'true'
+        run: |
+          echo "// fake code for $(date)" >> fake_code.js
+          git config --global user.name "Your Name"
+          git config --global user.email "your-email@example.com"
+          git add .
+          git commit -m "Random fake commit on $(date)"
+          git push
